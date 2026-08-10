@@ -143,7 +143,14 @@ bao nhiêu và service tự hồi phục khi nào?
 Nếu gộp hai endpoint làm một và cho nó kiểm tra Redis, chuyện gì xảy ra với cụm
 3 container khi Redis mất kết nối 30 giây? Trả lời theo đúng thứ tự sự kiện.
 
-> *Câu trả lời của bạn*
+Chuỗi sự kiện thảm họa khi gộp `/healthz` và `/readyz` lại thành 1 endpoint duy nhất có kiểm tra Redis:
+1. **Giây 0:** Kết nối mạng tới Redis bị chập chờn hoặc gián đoạn trong 30 giây.
+2. **Giây 5:** Orchestrator (Docker/Kubernetes) thực hiện kiểm tra Liveness Probe định kỳ. Do endpoint gộp có kiểm tra Redis mà Redis không phản hồi, cả 3 container Chat Service đều trả về 503 / lỗi.
+3. **Giây 10:** Sau số lần thử lại (retries) thất bại, Orchestrator đánh giá CẢ 3 CONTAINER ĐỀU ĐÃ CHẾT và ra lệnh tiêu diệt (KILL/RESTART) cả 3 container cùng một lúc.
+4. **Giây 10 - 30:** Cụm 3 container rơi vào vòng lặp khởi động lại (restart loop). Trong khi đó, ở giây thứ 30, Redis đã tự khôi phục xong kết nối.
+5. **Giây 35+:** Vì cả 3 container đang trong quá trình boot app lại từ đầu, không có bất kỳ container nào sẵn sàng tiếp nhận request. Người dùng phải chịu lỗi 502/503 kéo dài hơn nhiều so với 30 giây sự cố ban đầu của Redis.
+
+=> **Bài học em rút ra:** `/healthz` (liveness) phải độc lập tuyệt đối không chạm tới DB/Redis để tránh container bị restart vô lý; còn `/readyz` (readiness) kiểm tra Redis để Load Balancer tạm thời ngưng chuyển traffic tới container đó mà không kill container.
 
 ---
 
