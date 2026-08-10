@@ -18,6 +18,7 @@ def utc_now_iso() -> str:
 
 
 def emit(event: str, severity: str = "INFO", **fields) -> str:
+
     """Ghi một dòng log JSON ra stdout.
 
     TODO (CP1): tạo dict gồm tối thiểu 3 khóa
@@ -35,4 +36,15 @@ def emit(event: str, severity: str = "INFO", **fields) -> str:
         >>> emit("chat_completed", client_id="sv01", usd_cost=0.0001)
         '{"event": "chat_completed", "severity": "INFO", "ts": "...", ...}'
     """
-    raise NotImplementedError("TODO (CP1): cài đặt emit")
+    record = {
+        "event": event,
+        "severity": severity.upper(),  # quy ước: severity luôn VIẾT HOA
+        "ts": utc_now_iso(),
+    }
+    # Gộp thêm mọi cặp key/value truyền vào (client_id, usd_cost, ...)
+    record.update(fields)
+
+    # Một dòng duy nhất, không indent, giữ nguyên tiếng Việt
+    line = json.dumps(record, ensure_ascii=False)
+    print(line, file=sys.stdout, flush=True)
+    return line

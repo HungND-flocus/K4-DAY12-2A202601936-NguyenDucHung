@@ -35,15 +35,19 @@ class Settings(BaseSettings):
     định = fail fast ngay lúc khởi động.
     """
 
+    port: int = 8000
+    api_token: str
+    redis_url: str = "redis://localhost:6379/0"
+    bucket_capacity: int = 10
+    refill_per_minute: int = 10
+    daily_budget_usd: float = 1.0
+    log_level: str = "INFO"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-
-    # TODO (CP1): khai báo 7 trường theo bảng trên, ví dụ:
-    #     port: int = 8000
-    #     api_token: str
 
 
 @lru_cache(maxsize=1)

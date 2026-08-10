@@ -92,7 +92,16 @@ def healthz():
     lời câu hỏi "có cần restart container này không?". Nếu nó phụ thuộc
     Redis, Redis chết một nhịp là cả cụm container bị restart theo.
     """
-    raise NotImplementedError("TODO (CP1/CP4): cài đặt /healthz")
+    if shutdown_guard.draining:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "draining"},
+        )
+    return {
+        "status": "ok",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+    }
 
 
 @app.get("/readyz")
@@ -107,7 +116,17 @@ def readyz(store: ChatStore = Depends(get_store)):
     Khác /healthz ở chỗ: endpoint này ĐƯỢC PHÉP kiểm tra dependency. Load
     balancer dùng nó để quyết định có đẩy request vào instance này không.
     """
-    raise NotImplementedError("TODO (CP4): cài đặt /readyz")
+    if shutdown_guard.draining:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "draining"},
+        )
+    if not store.ping():
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "redis": False},
+        )
+    return {"status": "ready", "redis": True}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -148,7 +167,7 @@ def chat(
                 },
             }
 
-    Vì sao check trước rồi mới gọi LLM? Vì tiền mất ở bước gọi LLM. Chặn sau
+Vì sao check trước rồi mới gọi LLM? Vì tiền mất ở bước gọi LLM. Chặn sau
     khi đã gọi thì bạn vừa trả tiền vừa trả lỗi.
 
     ``client_id`` do ``verify_bearer_token`` trả về, nên request không có
