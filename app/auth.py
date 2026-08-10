@@ -27,33 +27,27 @@ def verify_bearer_token(
     authorization: str | None = Header(default=None),
     x_client_id: str | None = Header(default=None),
 ) -> str:
-    """Kiểm tra header ``Authorization``; trả về client_id nếu hợp lệ.
+    """Kiểm tra header ``Authorization``; trả về client_id nếu hợp lệ."""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    TODO (CP3):
-      1. Thiếu header ``authorization`` → 401.
-      2. Tách header thành 2 phần: ``scheme, _, token = authorization.partition(" ")``.
-         Sai scheme (không phải ``Bearer``, so sánh không phân biệt hoa thường)
-         hoặc token rỗng → 401.
-      3. So sánh ``token`` với ``get_settings().api_token`` bằng
-         ``secrets.compare_digest(a, b)`` — **không dùng** ``==``.
-         Toán tử ``==`` dừng ngay tại ký tự đầu khác nhau, nên thời gian trả
-         lời rò rỉ thông tin về token (timing attack). ``compare_digest``
-         luôn chạy hết chuỗi.
-      4. Mọi trường hợp 401 dùng chung::
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != SCHEME.lower() or not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="invalid or missing bearer token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    if not secrets.compare_digest(token, get_settings().api_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-         Header ``WWW-Authenticate`` là bắt buộc theo chuẩn HTTP cho response
-         401 — nó nói cho client biết phải xác thực kiểu gì.
-
-         Dùng **cùng một** thông báo cho mọi trường hợp: nói rõ "sai scheme"
-         hay "token không đúng" là tặng thông tin cho người đang dò.
-      5. Hợp lệ → trả về ``x_client_id`` nếu client có gửi, ngược lại trả
-         ``ANONYMOUS_CLIENT``. client_id này là đơn vị để rate limit và tính
-         chi phí.
-    """
-    raise NotImplementedError("TODO (CP3): cài đặt verify_bearer_token")
+    return x_client_id if x_client_id else ANONYMOUS_CLIENT
